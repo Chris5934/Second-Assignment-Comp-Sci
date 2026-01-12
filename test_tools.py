@@ -3,9 +3,6 @@ Test script for ReAct Agent tools
 Tests each tool independently to verify functionality
 """
 
-import os
-os.environ["OPENROUTER_API_KEY"] = "test_key"  # Set dummy key for testing
-
 from react_agent import ReActAgent
 
 def test_tools():
@@ -13,8 +10,8 @@ def test_tools():
     print("Testing ReAct Agent Tools")
     print("=" * 60)
     
-    # Create agent (won't call LLM in these tests)
-    agent = ReActAgent("dummy_key")
+    # Create agent with dummy key for testing
+    agent = ReActAgent("test_key_for_testing")
     
     # Test 1: Calculator
     print("\n1. Testing Calculator Tool:")

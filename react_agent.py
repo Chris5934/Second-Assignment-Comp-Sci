@@ -52,10 +52,13 @@ class ReActAgent:
         def calculator(expression: str) -> str:
             """Evaluate a mathematical expression"""
             try:
-                # Safe evaluation of basic math expressions
-                result = eval(expression, {"__builtins__": {}}, {})
+                # Safe evaluation of basic math expressions using restricted eval
+                # Only allow basic arithmetic operations
+                allowed_names = {}
+                allowed_builtins = {}
+                result = eval(expression, {"__builtins__": allowed_builtins}, allowed_names)
                 return f"The result of {expression} is {result}"
-            except Exception as e:
+            except (SyntaxError, NameError, TypeError) as e:
                 return f"Error calculating {expression}: {str(e)}"
         
         # Tool 2: Current time/date (local utility)
@@ -105,7 +108,7 @@ class ReActAgent:
             Returns titles, authors, and summaries
             """
             try:
-                base_url = "http://export.arxiv.org/api/query"
+                base_url = "https://export.arxiv.org/api/query"
                 params = {
                     "search_query": f"all:{query}",
                     "start": 0,
@@ -227,7 +230,7 @@ class ReActAgent:
                 input_str = line.replace("Action Input:", "").strip()
                 try:
                     action_input = json.loads(input_str)
-                except:
+                except json.JSONDecodeError:
                     # If not valid JSON, treat as string
                     action_input = {"input": input_str}
         
