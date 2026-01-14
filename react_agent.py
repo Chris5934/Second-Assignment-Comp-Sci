@@ -108,7 +108,7 @@ class ReActAgent:
             Returns titles, authors, and summaries
             """
             try:
-                base_url = "http://export.arxiv.org/api/query
+                base_url = "http://export.arxiv.org/api/query"
                 params = {
                     "search_query": f"all:{query}",
                     "start": 0,
@@ -211,6 +211,55 @@ class ReActAgent:
             
         except Exception as e:
             return f"Error calling LLM: {str(e)}"
+
+    def run(self, user_query: str) -> str:
+        system_prompt = f"""You are a helpful ReAct agent.
+
+Available tools:
+{self._get_tool_descriptions()}
+
+To use a tool, respond with:
+Thought: [your reasoning about what to do next]
+Action: [tool_name]
+Action Input: {{"param_name": "param_value"}}
+
+When you have enough information to answer the question, respond with:
+Thought: [your reasoning]
+Final Answer: [your complete answer to the user's question]
+
+Always think step by step and use tools when you need information."""
+        
+        messages = []
+        messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": user_query})
+
+        steps = 0
+        while steps < self.max_iterations:
+            response_text = self._call_llm(messages)
+            messages.append({"role": "assistant", "content": response_text})
+
+            if "Final Answer:" in response_text:
+                return response_text.split("Final Answer:", 1)[1].strip()
+
+            tool_name, tool_input = self._parse_action(response_text)
+            if not tool_name:
+                return "I got stuck. No valid action found."
+            if tool_input is None:
+                tool_input = {}
+
+            tool = self.tools.get(tool_name)
+            if not tool:
+                messages.append({"role": "user", "content": f"Observation: Tool '{tool_name}' not found."})
+                steps += 1
+                continue
+
+            observation = tool.execute(**tool_input)
+            messages.append({"role": "user", "content": f"Observation: {observation}"})
+
+            steps += 1
+
+        return "I couldn't complete the task within the iteration limit."
+
     
     def _parse_action(self, llm_response: str) -> tuple:
         """
@@ -236,64 +285,9 @@ class ReActAgent:
         
         return action, action_input
     
-    def run(self, user_query: str) -> str:
-        system_prompt = f"""You are a helpful ReAct agent.
-    
-    Available tools:
-    {self._get_tool_descriptions()}
-    
-    To use a tool, respond with:
-    Thought: [your reasoning about what to do next]
-    Action: [tool_name]
-    Action Input: {{"param_name": "param_value"}}
-    
-    When you have enough information to answer the question, respond with:
-    Thought: [your reasoning]
-    Final Answer: [your complete answer to the user's question]
-    
-    Always think step by step and use tools when you need information."""
-        
-        messages = []
-        messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": user_query})
-    
-        steps = 0
-        while steps < self.max_iterations:
-            response_text = self._call_llm(messages)
-            messages.append({"role": "assistant", "content": response_text})
-    
-            if "Final Answer:" in response_text:
-                return response_text.split("Final Answer:", 1)[1].strip()
-    
-            tool_name, tool_input = self._parse_action(response_text)
-            if not tool_name:
-                return "I got stuck. No valid action found."
-            if tool_input is None:
-                tool_input = {}
-
-            tool_name = action_data["tool"]
-            tool_input = action_data["input"]
-    
-            tool = self.tools.get(tool_name)
-            if not tool:
-                messages.append({"role": "assistant", "content": f"Observation: Tool '{tool_name}' not found."})
-                steps += 1
-                continue
-    
-            try:
-                result = tool.execute(**tool_input)
-            except TypeError:
-                result = tool.execute(tool_input)
-    
-            messages.append({"role": "assistant", "content": f"Observation: {result}"})
-            steps += 1
-    
-        return "I couldn't complete the task within the iteration limit."
-    
     def get_conversation_history(self) -> List[Dict[str, Any]]:
         """Return the conversation history for debugging"""
         return self.conversation_history
-
 
 def main():
     """CLI interface for the ReAct agent"""
