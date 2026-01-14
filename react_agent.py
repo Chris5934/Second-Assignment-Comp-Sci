@@ -237,11 +237,41 @@ class ReActAgent:
         return action, action_input
     
     def run(self, user_query: str) -> str:
-        """
-        Main ReAct loop: execute reasoning and acting cycles until task is complete
-        """
-        # Initialize conversation with system prompt
-        system_prompt = f"""You are a helpful AI assistant that uses tools to answer questions.
+    messages = []
+    messages.append({"role": "system", "content": self._get_system_prompt()})
+    messages.append({"role": "user", "content": user_query})
+
+    steps = 0
+    while steps < self.max_iterations:
+        response_text = self._call_llm(messages)
+        messages.append({"role": "assistant", "content": response_text})
+
+        if "Final Answer:" in response_text:
+            return response_text.split("Final Answer:", 1)[1].strip()
+
+        action_data = self._parse_action(response_text)
+        if not action_data:
+            return "I got stuck. No valid action found."
+
+        tool_name = action_data["tool"]
+        tool_input = action_data["input"]
+
+        tool = self.tools.get(tool_name)
+        if not tool:
+            messages.append({"role": "assistant", "content": f"Observation: Tool '{tool_name}' not found."})
+            steps += 1
+            continue
+
+        try:
+            result = tool.execute(**tool_input)
+        except TypeError:
+            result = tool.execute(tool_input)
+
+        messages.append({"role": "assistant", "content": f"Observation: {result}"})
+        steps += 1
+
+    return "I couldn't complete the task within the iteration limit."
+
 
 Available tools:
 {self._get_tool_descriptions()}
