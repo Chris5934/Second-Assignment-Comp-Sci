@@ -218,6 +218,9 @@ class ReActAgent:
 Available tools:
 {self._get_tool_descriptions()}
 
+If the user asks for research papers or citations, you MUST call search_arxiv at least once before giving a Final Answer.
+Do not invent paper titles. If no results, say so.
+
 If you mention a tool or say you can use a tool, you MUST immediately use it by emitting an Action and Action Input.
 Never describe tool usage without performing it.
 
@@ -235,34 +238,46 @@ Always think step by step and use tools when you need information."""
         messages = []
         messages.append({"role": "system", "content": system_prompt})
         messages.append({"role": "user", "content": user_query})
-
+        
+        need_arxiv = any(k in user_query.lower() for k in ["paper", "research", "arxiv", "study", "citation"])
+        
         steps = 0
         while steps < self.max_iterations:
             response_text = self._call_llm(messages)
             messages.append({"role": "assistant", "content": response_text})
-
+        
+            # If user wants papers and the model didn't issue an Action, force an arXiv tool call once
+            if need_arxiv and "Action:" not in response_text:
+                observation = self.tools["search_arxiv"].execute(query=user_query, max_results=3)
+                messages.append({"role": "user", "content": f"Observation: {observation}"})
+                need_arxiv = False
+                steps += 1
+                continue
+        
             if "Final Answer:" in response_text:
                 return response_text.split("Final Answer:", 1)[1].strip()
-
+        
             tool_name, tool_input = self._parse_action(response_text)
-            # If no tool was chosen, assume the model answered directly
             if not tool_name:
+                # If not a paper request, allow direct answer
                 return response_text
+        
             if tool_input is None:
                 tool_input = {}
-
+        
             tool = self.tools.get(tool_name)
             if not tool:
                 messages.append({"role": "user", "content": f"Observation: Tool '{tool_name}' not found."})
                 steps += 1
                 continue
-
+        
             observation = tool.execute(**tool_input)
             messages.append({"role": "user", "content": f"Observation: {observation}"})
-
+        
             steps += 1
-
+        
         return "I couldn't complete the task within the iteration limit."
+
 
     
     def _parse_action(self, llm_response: str) -> tuple:
