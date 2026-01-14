@@ -236,9 +236,25 @@ class ReActAgent:
         
         return action, action_input
     
-    def run(self, user_query: str) -> str:
+def run(self, user_query: str) -> str:
+    system_prompt = f"""You are a helpful ReAct agent.
+
+Available tools:
+{self._get_tool_descriptions()}
+
+To use a tool, respond with:
+Thought: [your reasoning about what to do next]
+Action: [tool_name]
+Action Input: {{"param_name": "param_value"}}
+
+When you have enough information to answer the question, respond with:
+Thought: [your reasoning]
+Final Answer: [your complete answer to the user's question]
+
+Always think step by step and use tools when you need information."""
+    
     messages = []
-    messages.append({"role": "system", "content": self._get_system_prompt()})
+    messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": user_query})
 
     steps = 0
@@ -273,25 +289,6 @@ class ReActAgent:
     return "I couldn't complete the task within the iteration limit."
 
 
-Available tools:
-{self._get_tool_descriptions()}
-
-To use a tool, respond with:
-Thought: [your reasoning about what to do next]
-Action: [tool_name]
-Action Input: {{"param_name": "param_value"}}
-
-When you have enough information to answer the question, respond with:
-Thought: [your reasoning]
-Final Answer: [your complete answer to the user's question]
-
-Always think step by step and use tools when you need information."""
-
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_query}
-        ]
-        
         self.conversation_history = [{"type": "user_query", "content": user_query}]
         
         # ReAct loop
