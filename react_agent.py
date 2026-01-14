@@ -242,8 +242,9 @@ Always think step by step and use tools when you need information."""
                 return response_text.split("Final Answer:", 1)[1].strip()
 
             tool_name, tool_input = self._parse_action(response_text)
+            # If no tool was chosen, assume the model answered directly
             if not tool_name:
-                return "I got stuck. No valid action found."
+                return response_text
             if tool_input is None:
                 tool_input = {}
 
