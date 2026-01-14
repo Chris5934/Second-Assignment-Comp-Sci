@@ -1,5 +1,3 @@
-If you mention a tool or say you can use a tool, you MUST immediately use it by emitting an Action and Action Input.
-Never describe tool usage without performing it.
 """
 ReAct Agent Implementation
 A from-scratch implementation of a Reasoning and Acting agent without using any agentic libraries.
